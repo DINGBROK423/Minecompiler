@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C-- Compiler Workbench</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #18202a;
+      --muted: #657181;
+      --line: #d8dde5;
+      --accent: #176b5b;
+      --accent-2: #a44b32;
+      --code: #101820;
+      --code-ink: #e8eef7;
+      --soft: #e9f3f0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    main {
+      height: calc(100vh - 58px);
+      display: grid;
+      grid-template-columns: minmax(320px, 43%) minmax(420px, 57%);
+      gap: 0;
+      min-height: 620px;
+    }
+
+    .editorPane,
+    .resultPane {
+      min-width: 0;
+      padding: 16px;
+    }
+
+    .editorPane {
+      border-right: 1px solid var(--line);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      min-height: 36px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      height: 36px;
+      border-radius: 6px;
+      padding: 0 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: progress;
+    }
+
+    .status {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 42%;
+    }
+
+    textarea {
+      width: 100%;
+      height: calc(100% - 48px);
+      min-height: 520px;
+      resize: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+      color: var(--ink);
+      font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      outline: none;
+      tab-size: 2;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.14);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      scrollbar-width: thin;
+    }
+
+    .tab {
+      flex: 0 0 auto;
+      height: 34px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      padding: 0 11px;
+      font-size: 13px;
+    }
+
+    .tab.active {
+      background: var(--soft);
+      border-color: rgba(23, 107, 91, 0.45);
+      color: var(--accent);
+    }
+
+    .outputWrap {
+      height: calc(100% - 44px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--code);
+    }
+
+    pre {
+      margin: 0;
+      height: 100%;
+      overflow: auto;
+      padding: 14px;
+      color: var(--code-ink);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .badge.error {
+      background: #f7e7e2;
+      color: var(--accent-2);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        height: auto;
+        min-height: 0;
+        grid-template-columns: 1fr;
+      }
+
+      .editorPane {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      textarea {
+        height: 45vh;
+        min-height: 300px;
+      }
+
+      .resultPane {
+        height: 55vh;
+        min-height: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>C-- Compiler Workbench</h1>
+    <span id="badge" class="badge">Ready</span>
+  </header>
+  <main>
+    <section class="editorPane">
+      <div class="toolbar">
+        <button class="primary" id="runBtn">Run</button>
+        <button id="sampleBtn">Sample</button>
+        <button id="clearBtn">Clear</button>
+        <span id="status" class="status"></span>
+      </div>
+      <textarea id="source" spellcheck="false"></textarea>
+    </section>
+    <section class="resultPane">
+      <div class="tabs" id="tabs"></div>
+      <div class="outputWrap">
+        <pre id="output"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tabDefs = [
+      ["ir", "LLVM IR"],
+      ["tokens", "Tokens"],
+      ["symtab", "Symbols"],
+      ["parse", "Parse"],
+      ["ast", "AST"],
+      ["semantic", "Semantic"],
+      ["dfa", "DFA"],
+      ["first", "FIRST"],
+      ["follow", "FOLLOW"],
+      ["lr0", "LR(0)"],
+      ["slr", "SLR"]
+    ];
+
+    const source = document.querySelector("#source");
+    const output = document.querySelector("#output");
+    const tabs = document.querySelector("#tabs");
+    const runBtn = document.querySelector("#runBtn");
+    const sampleBtn = document.querySelector("#sampleBtn");
+    const clearBtn = document.querySelector("#clearBtn");
+    const statusEl = document.querySelector("#status");
+    const badge = document.querySelector("#badge");
+
+    let artifacts = {};
+    let active = "ir";
+
+    function renderTabs() {
+      tabs.innerHTML = "";
+      for (const [key, label] of tabDefs) {
+        const btn = document.createElement("button");
+        btn.className = "tab" + (key === active ? " active" : "");
+        btn.textContent = label;
+        btn.addEventListener("click", () => {
+          active = key;
+          renderTabs();
+          renderOutput();
+        });
+        tabs.appendChild(btn);
+      }
+    }
+
+    function renderOutput() {
+      output.textContent = artifacts[active] || "";
+    }
+
+    function setState(text, ok = true) {
+      badge.textContent = text;
+      badge.className = "badge" + (ok ? "" : " error");
+    }
+
+    async function loadSample() {
+      const res = await fetch("/api/sample");
+      const data = await res.json();
+      source.value = data.source;
+      statusEl.textContent = "sample loaded";
+    }
+
+    async function run() {
+      runBtn.disabled = true;
+      statusEl.textContent = "compiling...";
+      setState("Running");
+      try {
+        const res = await fetch("/api/compile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: source.value })
+        });
+        const data = await res.json();
+        artifacts = data.artifacts || {};
+        if (data.stderr) artifacts.semantic = (artifacts.semantic || "") + "\n\nstderr:\n" + data.stderr;
+        if (data.stdout) artifacts.parse = (artifacts.parse || "") + "\n\nstdout:\n" + data.stdout;
+        active = data.ok ? "ir" : (artifacts.semantic ? "semantic" : "parse");
+        setState(data.ok ? "OK" : "Error", data.ok);
+        statusEl.textContent = data.ok ? "all stages finished" : `failed with code ${data.returncode ?? ""}`;
+        renderTabs();
+        renderOutput();
+      } catch (err) {
+        artifacts = { ir: String(err) };
+        active = "ir";
+        setState("Error", false);
+        statusEl.textContent = "request failed";
+        renderTabs();
+        renderOutput();
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    runBtn.addEventListener("click", run);
+    sampleBtn.addEventListener("click", loadSample);
+    clearBtn.addEventListener("click", () => {
+      source.value = "";
+      output.textContent = "";
+      artifacts = {};
+      statusEl.textContent = "cleared";
+      setState("Ready");
+    });
+
+    source.addEventListener("keydown", (ev) => {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") run();
+      if (ev.key === "Tab") {
+        ev.preventDefault();
+        const start = source.selectionStart;
+        const end = source.selectionEnd;
+        source.value = source.value.slice(0, start) + "  " + source.value.slice(end);
+        source.selectionStart = source.selectionEnd = start + 2;
+      }
+    });
+
+    renderTabs();
+    loadSample().then(run);
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+InT Main() {
+  // keyword case and comments
+  float _v1 = 1.25;
+  int x = 10;
+  if (x >= 10 && _v1 <= 2.0) {
+    return x;
+  }
+  @
+}
+

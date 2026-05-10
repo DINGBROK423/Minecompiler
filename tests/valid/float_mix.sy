@@ -1,0 +1,14 @@
+float id(float x) {
+  return x;
+}
+
+int main() {
+  float a = 1.5;
+  float b = id(a) + 2;
+  if (b > 1.0) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+

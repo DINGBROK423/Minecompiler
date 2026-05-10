@@ -1,0 +1,8 @@
+cmmc
+build/obj/
+build/cmake/
+build/out/
+out/
+src/*.o
+*.dSYM/
+.DS_Store

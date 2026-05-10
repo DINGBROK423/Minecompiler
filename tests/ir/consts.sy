@@ -1,0 +1,7 @@
+const int base = 7;
+
+int main() {
+  const int delta = 5;
+  int x = base + delta;
+  return x;
+}

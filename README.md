@@ -83,9 +83,11 @@ make test
 当前测试覆盖：
 
 - 词法：关键字大小写、注释、浮点数、非法字符恢复。
-- 语法：变量/常量、函数、参数、表达式、if/else、dangling else。
-- 语义：未定义变量、const 赋值、函数实参数量错误、return 类型错误。
-- IR：全局/局部变量、const、表达式、if/else、函数参数与函数调用。
+- 语法：变量/常量、函数、参数、表达式、if/else、dangling else、规约 trace。
+- 语义：未定义变量、const 赋值、函数实参数量错误、嵌套函数调用、return 类型错误。
+- IR：全局/局部变量、const、全局常量表达式、表达式、if/else、函数参数与函数调用。
+- 浮点 fallback：全局 float 变量、float const、局部 const、实参自动转换、混合表达式。
+- LLVM 校验：如果本机存在 `clang`，测试脚本会对生成的 `.ll` 执行 `clang -c -x ir`。
 
 ## compiler_ir 说明
 
@@ -105,6 +107,8 @@ git submodule update --init --recursive
 - `int/void` 必做子集使用 `compiler_ir` 的 `Module / Function / BasicBlock / IRBuilder / GlobalVariable / ConstantInt` 真实构造 IR。
 - `float` 扩展示例自动回退到文本后端，因为给定中端库没有完整浮点常量和浮点二元指令封装。
 - 两条路径共享同一个 AST 和语义分析结果，对外命令保持一致。
+
+文法实现以实验手册附录为基础，并做了必要的工程化改写：使用 `matchedStmt / unmatchedStmt` 消除 dangling else；为展示扩展能力，额外支持 `float` 函数返回值和普通表达式中的比较/逻辑运算。默认必做的 `int/void` 子集仍走 `compiler_ir` 主路径。
 
 ## Web UI
 

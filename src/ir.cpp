@@ -6,6 +6,9 @@
 #include "IRbuilder.h"
 #include "Module.h"
 
+#include <cmath>
+#include <iomanip>
+
 namespace {
 
 std::vector<AstPtr> collect_kind(const AstPtr& node, const std::string& kind) {
@@ -103,34 +106,58 @@ AstPtr direct_child(const AstPtr& node, const std::string& kind) {
     return nullptr;
 }
 
-int eval_int_const_expr(const AstPtr& expr);
+std::string direct_ident_name(const AstPtr& node) {
+    if (!node) return "";
+    if (node->kind == "Ident") return node->text;
+    if (node->kind == "lVal") {
+        for (const auto& ch : node->children) {
+            if (ch->kind == "Ident") return ch->text;
+        }
+    }
+    return "";
+}
 
-int eval_int_leafy(const AstPtr& node) {
+int eval_int_const_expr(const AstPtr& expr, const std::map<std::string, int>& constants = {});
+double eval_float_const_expr(const AstPtr& expr,
+                             const std::map<std::string, int>& int_constants = {},
+                             const std::map<std::string, double>& float_constants = {});
+
+int eval_int_leafy(const AstPtr& node, const std::map<std::string, int>& constants) {
     if (!node) return 0;
     if (node->kind == "IntConst") return std::stoi(node->text);
     if (node->kind == "floatConst") return static_cast<int>(std::stod(node->text));
-    if (node->children.size() == 1) return eval_int_const_expr(node->children[0]);
-    return eval_int_const_expr(node);
+    std::string name = direct_ident_name(node);
+    if (!name.empty()) {
+        auto it = constants.find(name);
+        return it == constants.end() ? 0 : it->second;
+    }
+    if (node->children.size() == 1) return eval_int_const_expr(node->children[0], constants);
+    return eval_int_const_expr(node, constants);
 }
 
-int eval_int_const_expr(const AstPtr& expr) {
+int eval_int_const_expr(const AstPtr& expr, const std::map<std::string, int>& constants) {
     if (!expr) return 0;
     if (expr->kind == "IntConst") return std::stoi(expr->text);
     if (expr->kind == "floatConst") return static_cast<int>(std::stod(expr->text));
-    if (expr->children.size() == 1) return eval_int_const_expr(expr->children[0]);
+    std::string name = direct_ident_name(expr);
+    if (!name.empty()) {
+        auto it = constants.find(name);
+        return it == constants.end() ? 0 : it->second;
+    }
+    if (expr->children.size() == 1) return eval_int_const_expr(expr->children[0], constants);
     if (expr->children.size() == 2 && expr->children[0]->kind == "unaryOp") {
         std::string op = node_text(expr->children[0]);
-        int v = eval_int_const_expr(expr->children[1]);
+        int v = eval_int_const_expr(expr->children[1], constants);
         if (op == "-") return -v;
         if (op == "!") return !v;
         return v;
     }
     if (expr->children.size() == 3 && expr->children[0]->text == "(" && expr->children[2]->text == ")") {
-        return eval_int_const_expr(expr->children[1]);
+        return eval_int_const_expr(expr->children[1], constants);
     }
     if (expr->children.size() == 3) {
-        int lhs = eval_int_const_expr(expr->children[0]);
-        int rhs = eval_int_const_expr(expr->children[2]);
+        int lhs = eval_int_const_expr(expr->children[0], constants);
+        int rhs = eval_int_const_expr(expr->children[2], constants);
         std::string op = node_text(expr->children[1]);
         if (op == "+") return lhs + rhs;
         if (op == "-") return lhs - rhs;
@@ -148,10 +175,83 @@ int eval_int_const_expr(const AstPtr& expr) {
     }
     for (const auto& ch : expr->children) {
         if (ch->kind != "(" && ch->kind != ")" && ch->kind != "," && ch->kind != ";") {
-            return eval_int_leafy(ch);
+            return eval_int_leafy(ch, constants);
         }
     }
     return 0;
+}
+
+double eval_float_leafy(const AstPtr& node,
+                        const std::map<std::string, int>& int_constants,
+                        const std::map<std::string, double>& float_constants) {
+    if (!node) return 0.0;
+    if (node->kind == "IntConst") return std::stod(node->text);
+    if (node->kind == "floatConst") return std::stod(node->text);
+    std::string name = direct_ident_name(node);
+    if (!name.empty()) {
+        auto fit = float_constants.find(name);
+        if (fit != float_constants.end()) return fit->second;
+        auto iit = int_constants.find(name);
+        return iit == int_constants.end() ? 0.0 : static_cast<double>(iit->second);
+    }
+    if (node->children.size() == 1) return eval_float_const_expr(node->children[0], int_constants, float_constants);
+    return eval_float_const_expr(node, int_constants, float_constants);
+}
+
+double eval_float_const_expr(const AstPtr& expr,
+                             const std::map<std::string, int>& int_constants,
+                             const std::map<std::string, double>& float_constants) {
+    if (!expr) return 0.0;
+    if (expr->kind == "IntConst") return std::stod(expr->text);
+    if (expr->kind == "floatConst") return std::stod(expr->text);
+    std::string name = direct_ident_name(expr);
+    if (!name.empty()) {
+        auto fit = float_constants.find(name);
+        if (fit != float_constants.end()) return fit->second;
+        auto iit = int_constants.find(name);
+        return iit == int_constants.end() ? 0.0 : static_cast<double>(iit->second);
+    }
+    if (expr->children.size() == 1) return eval_float_const_expr(expr->children[0], int_constants, float_constants);
+    if (expr->children.size() == 2 && expr->children[0]->kind == "unaryOp") {
+        std::string op = node_text(expr->children[0]);
+        double v = eval_float_const_expr(expr->children[1], int_constants, float_constants);
+        if (op == "-") return -v;
+        if (op == "!") return !v;
+        return v;
+    }
+    if (expr->children.size() == 3 && expr->children[0]->text == "(" && expr->children[2]->text == ")") {
+        return eval_float_const_expr(expr->children[1], int_constants, float_constants);
+    }
+    if (expr->children.size() == 3) {
+        double lhs = eval_float_const_expr(expr->children[0], int_constants, float_constants);
+        double rhs = eval_float_const_expr(expr->children[2], int_constants, float_constants);
+        std::string op = node_text(expr->children[1]);
+        if (op == "+") return lhs + rhs;
+        if (op == "-") return lhs - rhs;
+        if (op == "*") return lhs * rhs;
+        if (op == "/") return rhs == 0.0 ? 0.0 : lhs / rhs;
+        if (op == "%") return rhs == 0.0 ? 0.0 : std::fmod(lhs, rhs);
+        if (op == "<") return lhs < rhs;
+        if (op == ">") return lhs > rhs;
+        if (op == "<=") return lhs <= rhs;
+        if (op == ">=") return lhs >= rhs;
+        if (op == "==") return lhs == rhs;
+        if (op == "!=") return lhs != rhs;
+        if (op == "&&") return lhs && rhs;
+        if (op == "||") return lhs || rhs;
+    }
+    for (const auto& ch : expr->children) {
+        if (ch->kind != "(" && ch->kind != ")" && ch->kind != "," && ch->kind != ";") {
+            return eval_float_leafy(ch, int_constants, float_constants);
+        }
+    }
+    return 0.0;
+}
+
+std::string format_float_const(double value) {
+    std::ostringstream os;
+    os << std::scientific << std::setprecision(6) << value;
+    return os.str();
 }
 
 struct MiddleValue {
@@ -196,6 +296,7 @@ private:
     int block_id_ = 0;
     std::map<std::string, Function*> functions_;
     std::vector<std::map<std::string, MiddleBinding>> scopes_;
+    std::map<std::string, int> const_values_;
 
     Type* int_type() { return module_.get_int32_type(); }
     Type* bool_type() { return module_.get_int1_type(); }
@@ -292,9 +393,10 @@ private:
             if (ids.empty()) continue;
             int init = 0;
             auto init_node = collect_kind(def, is_const ? "constInitVal" : "initVal");
-            if (!init_node.empty()) init = eval_int_const_expr(init_node.front());
+            if (!init_node.empty()) init = eval_int_const_expr(init_node.front(), const_values_);
             auto* gv = GlobalVariable::create(ids.front()->text, &module_, int_type(), is_const, i32(init));
             bind(ids.front()->text, gv, int_type(), is_const);
+            if (is_const) const_values_[ids.front()->text] = init;
         }
     }
 
@@ -535,6 +637,9 @@ IRResult IRGenerator::generate(const AstPtr& root, const std::string& source_nam
     label_id_ = 0;
     values_.clear();
     function_returns_.clear();
+    function_param_types_.clear();
+    global_const_values_.clear();
+    global_float_const_values_.clear();
     out_ << "; ModuleID = 'sysy2022_compiler'\n";
     out_ << "source_filename = \"" << source_name << "\"\n\n";
     emit_runtime();
@@ -557,6 +662,7 @@ void IRGenerator::emit_runtime() {
 void IRGenerator::visit_top(const AstPtr& root) {
     if (!root) return;
     auto items = collect_kind(root, "compUnitItem");
+    enter_scope();
     for (const auto& item : items) {
         if (item->children.empty() || item->children.front()->kind != "funcDef") continue;
         auto names = collect_kind(item->children.front(), "funcName");
@@ -564,6 +670,12 @@ void IRGenerator::visit_top(const AstPtr& root) {
         std::string name = token_text(names.front());
         std::string ret = item->children.front()->children.empty() ? "int" : c_type(item->children.front()->children.front());
         function_returns_[name] = ir_type(ret);
+        std::vector<std::string> params;
+        for (const auto& p : collect_kind(item->children.front(), "funcFParam")) {
+            auto btypes = collect_kind(p, "bType");
+            params.push_back(btypes.empty() ? "i32" : ir_type(c_type(btypes.front())));
+        }
+        function_param_types_[name] = params;
     }
     for (const auto& item : items) {
         if (item->children.empty()) continue;
@@ -573,6 +685,7 @@ void IRGenerator::visit_top(const AstPtr& root) {
         if (item->children.empty()) continue;
         if (item->children.front()->kind == "funcDef") emit_function(item->children.front());
     }
+    leave_scope();
 }
 
 std::string IRGenerator::token_text(const AstPtr& node) const {
@@ -607,19 +720,29 @@ std::string IRGenerator::zero_value(const std::string& ty) const {
 void IRGenerator::emit_global_decl(const AstPtr& decl) {
     if (!decl || decl->children.empty()) return;
     AstPtr real = decl->children.front();
+    bool is_const = real->kind == "constDecl";
     std::string ty = "i32";
     auto btypes = collect_kind(real, "bType");
     if (!btypes.empty()) ty = ir_type(c_type(btypes.front()));
-    auto defs = collect_kind(real, real->kind == "constDecl" ? "constDef" : "varDef");
+    auto defs = collect_kind(real, is_const ? "constDef" : "varDef");
     for (const auto& def : defs) {
         auto ids = collect_kind(def, "Ident");
         if (ids.empty()) continue;
         std::string init = zero_value(ty);
-        auto ints = collect_kind(def, "IntConst");
-        auto floats = collect_kind(def, "floatConst");
-        if (ty == "float" && !floats.empty()) init = floats.front()->text;
-        else if (!ints.empty()) init = ints.front()->text;
-        out_ << "@" << ids.front()->text << " = global " << ty << " " << init << "\n";
+        double float_init = 0.0;
+        auto init_node = collect_kind(def, is_const ? "constInitVal" : "initVal");
+        if (!init_node.empty()) {
+            if (ty == "float") {
+                float_init = eval_float_const_expr(init_node.front(), global_const_values_, global_float_const_values_);
+                init = format_float_const(float_init);
+            } else {
+                init = std::to_string(eval_int_const_expr(init_node.front(), global_const_values_));
+            }
+        }
+        out_ << "@" << ids.front()->text << " = " << (is_const ? "constant " : "global ") << ty << " " << init << "\n";
+        bind(ids.front()->text, "@" + ids.front()->text, ty);
+        if (is_const && ty == "i32") global_const_values_[ids.front()->text] = std::stoi(init);
+        if (is_const && ty == "float") global_float_const_values_[ids.front()->text] = float_init;
     }
 }
 
@@ -665,21 +788,23 @@ void IRGenerator::emit_function(const AstPtr& func) {
 
 void IRGenerator::emit_block(const AstPtr& block) {
     enter_scope();
-    for (const auto& item : collect_kind(block, "blockItem")) {
+    for (const auto& item : direct_block_items(block)) {
         if (item->children.empty()) continue;
         if (item->children.front()->kind == "decl") {
             AstPtr decl = item->children.front();
+            AstPtr real = decl->children.empty() ? nullptr : decl->children.front();
+            bool is_const = real && real->kind == "constDecl";
             std::string ty = "i32";
             auto btypes = collect_kind(decl, "bType");
             if (!btypes.empty()) ty = ir_type(c_type(btypes.front()));
-            auto defs = collect_kind(decl, "varDef");
+            auto defs = collect_kind(decl, is_const ? "constDef" : "varDef");
             for (const auto& def : defs) {
                 auto ids = collect_kind(def, "Ident");
                 if (ids.empty()) continue;
                 std::string ptr = "%" + ids.front()->text + "." + std::to_string(temp_id_++);
                 out_ << "  " << ptr << " = alloca " << ty << "\n";
                 bind(ids.front()->text, ptr, ty);
-                auto inits = collect_kind(def, "initVal");
+                auto inits = collect_kind(def, is_const ? "constInitVal" : "initVal");
                 if (!inits.empty()) {
                     IRValue val = emit_expr_value(inits.front());
                     std::string casted = cast_value(val, ty);
@@ -779,13 +904,20 @@ IRValue IRGenerator::emit_expr_value(const AstPtr& expr) {
         std::vector<IRValue> vals;
         for (const auto& arg : args) vals.push_back(emit_expr_value(arg));
         std::string ret_ty = function_returns_.count(name) ? function_returns_[name] : "i32";
+        auto expected_params = function_param_types_.find(name);
         std::ostringstream call;
         if (ret_ty != "void") {
             std::string tmp = new_temp();
             call << "  " << tmp << " = call " << ret_ty << " @" << name << "(";
             for (size_t i = 0; i < vals.size(); ++i) {
                 if (i) call << ", ";
-                call << vals[i].type << " " << vals[i].repr;
+                std::string arg_ty = vals[i].type;
+                std::string arg_repr = vals[i].repr;
+                if (expected_params != function_param_types_.end() && i < expected_params->second.size()) {
+                    arg_ty = expected_params->second[i];
+                    arg_repr = cast_value(vals[i], arg_ty);
+                }
+                call << arg_ty << " " << arg_repr;
             }
             call << ")\n";
             out_ << call.str();
@@ -794,7 +926,13 @@ IRValue IRGenerator::emit_expr_value(const AstPtr& expr) {
         call << "  call void @" << name << "(";
         for (size_t i = 0; i < vals.size(); ++i) {
             if (i) call << ", ";
-            call << vals[i].type << " " << vals[i].repr;
+            std::string arg_ty = vals[i].type;
+            std::string arg_repr = vals[i].repr;
+            if (expected_params != function_param_types_.end() && i < expected_params->second.size()) {
+                arg_ty = expected_params->second[i];
+                arg_repr = cast_value(vals[i], arg_ty);
+            }
+            call << arg_ty << " " << arg_repr;
         }
         call << ")\n";
         out_ << call.str();

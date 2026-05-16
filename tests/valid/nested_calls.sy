@@ -1,0 +1,11 @@
+int f(int x) {
+  return x;
+}
+
+int g() {
+  return f(f(1));
+}
+
+int main() {
+  return g();
+}

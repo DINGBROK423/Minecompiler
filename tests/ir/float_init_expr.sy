@@ -1,0 +1,7 @@
+const int a = 3;
+const float h = a + 0.5;
+float g = 1;
+
+int main() {
+  return h > g;
+}

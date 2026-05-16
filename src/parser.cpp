@@ -20,9 +20,13 @@ ParseResult SLRParser::parse(const std::vector<Token>& tokens) {
         int state = states.back();
         const Token& tok = pos < tokens.size() ? tokens[pos] : tokens.back();
         std::string sym = parser_symbol(tok);
+        auto stack_top = [&]() -> std::string {
+            if (!nodes.empty()) return nodes.back()->kind;
+            return "state" + std::to_string(states.back());
+        };
         auto it = result.table.action.find({state, sym});
         if (it == result.table.action.end()) {
-            trace << step << "\tstate" << state << "#" << sym << "\terror\n";
+            trace << step << "\t" << stack_top() << "#" << sym << "\terror\n";
             result.diagnostics.push_back({"parser", tok.loc, "unexpected token '" + tok.lexeme + "' in state " + std::to_string(state)});
             result.ok = false;
             result.trace = trace.str();
@@ -30,15 +34,14 @@ ParseResult SLRParser::parse(const std::vector<Token>& tokens) {
         }
         const Action& action = it->second;
         if (action.kind == Action::Kind::Shift) {
-            trace << step++ << "\t" << sym << "#" << tok.lexeme << "\tmove\n";
+            trace << step++ << "\t" << stack_top() << "#" << sym << "\tmove\n";
             auto leaf = make_ast_node(sym, tok.lexeme, tok.loc);
             nodes.push_back(leaf);
             states.push_back(action.target);
             pos++;
         } else if (action.kind == Action::Kind::Reduce) {
             const Production& p = grammar_.productions[action.production];
-            std::string rhs_head = p.rhs.empty() ? "$" : p.rhs.front();
-            trace << step++ << "\t" << p.lhs << "#" << rhs_head << "\treduction\n";
+            trace << step++ << "\t" << stack_top() << "#" << sym << "\treduction(" << p.id << ")\n";
             auto node = make_ast_node(p.lhs);
             std::vector<AstPtr> children;
             for (size_t i = 0; i < p.rhs.size(); ++i) {
@@ -62,17 +65,16 @@ ParseResult SLRParser::parse(const std::vector<Token>& tokens) {
             nodes.push_back(node);
             states.push_back(gt->second);
         } else if (action.kind == Action::Kind::Accept) {
-            trace << step++ << "\tProgram#EOF\taccept\n";
+            trace << step++ << "\t" << stack_top() << "#" << sym << "\taccept\n";
             result.ok = true;
             result.root = nodes.empty() ? nullptr : nodes.back();
             result.trace = trace.str();
             return result;
         } else {
-            trace << step << "\tstate" << state << "#" << sym << "\terror\n";
+            trace << step << "\t" << stack_top() << "#" << sym << "\terror\n";
             result.ok = false;
             result.trace = trace.str();
             return result;
         }
     }
 }
-

@@ -1,0 +1,4 @@
+float f() {
+  const int c = 2;
+  return c + 1.0;
+}

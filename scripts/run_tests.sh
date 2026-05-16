@@ -3,6 +3,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+check_ir() {
+  if command -v clang >/dev/null 2>&1; then
+    clang -Wno-override-module -c -x ir "$1" -o /tmp/cmmc_ir_check.o
+  fi
+}
+
 echo "[lex] valid/basic.sy"
 ./cmmc --lex tests/valid/basic.sy >/tmp/cmmc_basic.tokens
 grep -q $'int\t<KW,1>' /tmp/cmmc_basic.tokens
@@ -28,6 +34,10 @@ grep -q "accept" /tmp/cmmc_functions.parse
 echo "[parse] valid/dangling_else.sy"
 ./cmmc --parse tests/valid/dangling_else.sy >/tmp/cmmc_dangling.parse
 grep -q "accept" /tmp/cmmc_dangling.parse
+grep -q "reduction(" /tmp/cmmc_dangling.parse
+
+echo "[semantic] valid/nested_calls.sy"
+./cmmc --semantic tests/valid/nested_calls.sy >/tmp/cmmc_nested_sem.out
 
 echo "[ast] valid/if_else.sy"
 ./cmmc --ast tests/valid/if_else.sy >/tmp/cmmc_if.ast
@@ -63,27 +73,65 @@ echo "[ir] ir/simple.sy"
 grep -q "define i32 @main" /tmp/cmmc_simple.ll
 grep -q "ret i32" /tmp/cmmc_simple.ll
 grep -q "label_main_ENTRY" /tmp/cmmc_simple.ll
+check_ir /tmp/cmmc_simple.ll
 
 echo "[ir] ir/functions.sy"
 ./cmmc --ir tests/ir/functions.sy -o /tmp/cmmc_functions.ll
 grep -q "define i32 @add(i32 %a.arg, i32 %b.arg)" /tmp/cmmc_functions.ll
 grep -q "call i32 @add" /tmp/cmmc_functions.ll
 grep -q "declare i32 @getint()" /tmp/cmmc_functions.ll
+check_ir /tmp/cmmc_functions.ll
 
 echo "[ir] ir/if_else.sy"
 ./cmmc --ir tests/ir/if_else.sy -o /tmp/cmmc_if.ll
 grep -q "br i1" /tmp/cmmc_if.ll
 grep -q "label_if_then" /tmp/cmmc_if.ll
+check_ir /tmp/cmmc_if.ll
 
 echo "[ir] ir/consts.sy"
 ./cmmc --ir tests/ir/consts.sy -o /tmp/cmmc_consts.ll
 grep -q "@base = constant i32 7" /tmp/cmmc_consts.ll
 grep -q "ret i32" /tmp/cmmc_consts.ll
+check_ir /tmp/cmmc_consts.ll
+
+echo "[ir] ir/const_expr.sy"
+./cmmc --ir tests/ir/const_expr.sy -o /tmp/cmmc_const_expr.ll
+grep -q "@b = constant i32 4" /tmp/cmmc_const_expr.ll
+check_ir /tmp/cmmc_const_expr.ll
 
 echo "[ir] valid/float_mix.sy"
 ./cmmc --ir tests/valid/float_mix.sy -o /tmp/cmmc_float.ll
 grep -q "define float @id" /tmp/cmmc_float.ll
 grep -q "fadd float" /tmp/cmmc_float.ll
+check_ir /tmp/cmmc_float.ll
+
+echo "[ir] ir/float_global.sy"
+./cmmc --ir tests/ir/float_global.sy -o /tmp/cmmc_float_global.ll
+grep -q "load float, float\\* @g" /tmp/cmmc_float_global.ll
+check_ir /tmp/cmmc_float_global.ll
+
+echo "[ir] ir/float_const_expr.sy"
+./cmmc --ir tests/ir/float_const_expr.sy -o /tmp/cmmc_float_const_expr.ll
+grep -q "@b = constant i32 4" /tmp/cmmc_float_const_expr.ll
+check_ir /tmp/cmmc_float_const_expr.ll
+
+echo "[ir] ir/float_init_expr.sy"
+./cmmc --ir tests/ir/float_init_expr.sy -o /tmp/cmmc_float_init_expr.ll
+grep -q "@h = constant float 3.500000e+00" /tmp/cmmc_float_init_expr.ll
+grep -q "@g = global float 1.000000e+00" /tmp/cmmc_float_init_expr.ll
+check_ir /tmp/cmmc_float_init_expr.ll
+
+echo "[ir] ir/float_call_cast.sy"
+./cmmc --ir tests/ir/float_call_cast.sy -o /tmp/cmmc_float_call_cast.ll
+grep -q "sitofp i32 1 to float" /tmp/cmmc_float_call_cast.ll
+grep -q "call float @f(float" /tmp/cmmc_float_call_cast.ll
+check_ir /tmp/cmmc_float_call_cast.ll
+
+echo "[ir] ir/float_local_const.sy"
+./cmmc --ir tests/ir/float_local_const.sy -o /tmp/cmmc_float_local_const.ll
+grep -q "alloca i32" /tmp/cmmc_float_local_const.ll
+grep -q "fadd float" /tmp/cmmc_float_local_const.ll
+check_ir /tmp/cmmc_float_local_const.ll
 
 echo "[dump-all]"
 rm -rf /tmp/cmmc_out

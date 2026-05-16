@@ -67,15 +67,22 @@ bool SemanticAnalyzer::can_assign(const std::string& lhs, const std::string& rhs
 
 std::vector<AstPtr> SemanticAnalyzer::call_args(const AstPtr& funcRParamsOpt) const {
     std::vector<AstPtr> args;
-    auto params = flatten(funcRParamsOpt, "funcRParam");
-    for (const auto& p : params) {
-        for (const auto& ch : p->children) {
-            if (ch->kind == "exp") {
-                args.push_back(ch);
-                break;
+    std::function<void(const AstPtr&)> walk = [&](const AstPtr& node) {
+        if (!node) return;
+        if (node->kind == "funcRParam") {
+            for (const auto& ch : node->children) {
+                if (ch->kind == "exp") {
+                    args.push_back(ch);
+                    return;
+                }
             }
+            return;
         }
-    }
+        if (node->kind == "funcRParamsOpt" || node->kind == "funcRParams" || node->kind == "funcRParamsTail") {
+            for (const auto& ch : node->children) walk(ch);
+        }
+    };
+    walk(funcRParamsOpt);
     return args;
 }
 
@@ -319,4 +326,3 @@ std::string SemanticAnalyzer::infer_expr(const AstPtr& node) {
     }
     return type;
 }
-

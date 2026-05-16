@@ -28,6 +28,9 @@ private:
     int label_id_ = 0;
     std::vector<std::map<std::string, IRBinding>> values_;
     std::map<std::string, std::string> function_returns_;
+    std::map<std::string, std::vector<std::string>> function_param_types_;
+    std::map<std::string, int> global_const_values_;
+    std::map<std::string, double> global_float_const_values_;
     std::string current_function_;
     std::string current_return_ir_type_ = "i32";
     bool emitted_return_ = false;

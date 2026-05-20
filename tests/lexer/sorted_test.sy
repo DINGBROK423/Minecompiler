@@ -1,0 +1,26 @@
+// KW test
+INT int InT VoId RetuRn Const MAIn FLOAT if eLse
+
+// IDN test
+a _a 4a a4 _4_ _a_ main
+
+// OP test 
++ - * / = % > < == <= >= != && || <=> === ====
+
+// SE test
+( ) { } ; ,
+
+// INT & FLOAT test
+1 100100111120 2.7 31415926.535897 
+
+// ERROR test
+@
+& 
+
+
+                | ' "
+
+
+
+
+

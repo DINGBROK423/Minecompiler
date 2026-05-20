@@ -23,6 +23,17 @@ fi
 grep -q $'InT\t<KW,1>' /tmp/cmmc_mixed.tokens
 grep -q "illegal character" /tmp/cmmc_mixed.err
 
+echo "[lex] lexer/sorted_test.sy"
+if ./cmmc --lex tests/lexer/sorted_test.sy >/tmp/cmmc_sorted.tokens 2>/tmp/cmmc_sorted.err; then
+  echo "expected lexer failure for illegal character" >&2
+  exit 1
+fi
+grep -q $'VoId\t<KW,2>' /tmp/cmmc_sorted.tokens
+grep -q $'_4_\t<IDN,_4_>' /tmp/cmmc_sorted.tokens
+grep -q $'<=\t<OP,15>' /tmp/cmmc_sorted.tokens
+grep -q $'31415926.535897\t<FLOAT,31415926.535897>' /tmp/cmmc_sorted.tokens
+grep -q "illegal character" /tmp/cmmc_sorted.err
+
 echo "[parse] valid/basic.sy"
 ./cmmc --parse tests/valid/basic.sy >/tmp/cmmc_basic.parse
 grep -q "accept" /tmp/cmmc_basic.parse

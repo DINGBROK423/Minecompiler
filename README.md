@@ -104,11 +104,11 @@ git submodule update --init --recursive
 
 `src/ir.cpp` 保留了清晰的 IR 后端适配层：
 
-- `int/void` 必做子集使用 `compiler_ir` 的 `Module / Function / BasicBlock / IRBuilder / GlobalVariable / ConstantInt` 真实构造 IR。
+- `int/void` 核心子集使用 `compiler_ir` 的 `Module / Function / BasicBlock / IRBuilder / GlobalVariable / ConstantInt` 真实构造 IR。
 - `float` 扩展示例自动回退到文本后端，因为给定中端库没有完整浮点常量和浮点二元指令封装。
 - 两条路径共享同一个 AST 和语义分析结果，对外命令保持一致。
 
-文法实现以实验手册附录为基础，并做了必要的工程化改写：使用 `matchedStmt / unmatchedStmt` 消除 dangling else；为展示扩展能力，额外支持 `float` 函数返回值和普通表达式中的比较/逻辑运算。默认必做的 `int/void` 子集仍走 `compiler_ir` 主路径。
+文法实现以 C-- 基础文法为核心，并做了必要的工程化改写：使用 `matchedStmt / unmatchedStmt` 消除 dangling else；为展示扩展能力，额外支持 `float` 函数返回值和普通表达式中的比较/逻辑运算。默认 `int/void` 核心子集仍走 `compiler_ir` 主路径。
 
 ## Web UI
 
